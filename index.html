@@ -219,30 +219,40 @@
       const experimentKey = document.getElementById('experimentKey').value.trim();
       const categories = getCleanLines('categories');
       const testCategories = getCleanLines('testCategories');
-      let config = generateExperimentsConfig(categories, testCategories, experimentId, experimentKey);
-      // If there is valid extra JSON, merge it into the result
+      const generated = generateExperimentsConfig(categories, testCategories, experimentId, experimentKey);
       const extra = getExtraJson();
+      let config = {};
+      // Primero las entries del extra JSON (en orden)
       if (extra && extra !== 'error') {
         if (Array.isArray(extra)) {
           extra.forEach(entry => {
             if (typeof entry === 'object' && entry !== null) {
-              Object.assign(config, entry);
+              Object.keys(entry).forEach(key => {
+                config[key] = entry[key];
+              });
             }
           });
         } else if (typeof extra === 'object') {
-          Object.assign(config, extra);
+          Object.keys(extra).forEach(key => {
+            config[key] = extra[key];
+          });
         }
       }
+      // Luego las generadas por categorías (en orden)
+      Object.keys(generated).forEach(key => {
+        config[key] = generated[key];
+      });
       const code = formatOutput(config);
-      document.getElementById('output').innerHTML = `
-        <div class="output-block" id="codeBlock">
-          <button class="copy-btn" id="copyBtn">Copy</button>
-          <code>${code.replace(/</g, '&lt;')}</code>
-        </div>
-      `;
+      const codeMin = JSON.stringify(config);
+      document.getElementById('output').innerHTML =
+        '<div class="output-block" id="codeBlock">' +
+        '<button class="copy-btn" id="copyBtn">Copy</button>' +
+        '<pre style="margin:0;padding:0;background:none;border:none;"><code style="background:none;padding:0;">' +
+        code.replace(/</g, '&lt;') +
+        '</code></pre>' +
+        '</div>';
       document.getElementById('copyBtn').onclick = function() {
-        const text = code;
-        navigator.clipboard.writeText(text).then(() => {
+        navigator.clipboard.writeText(codeMin).then(() => {
           this.classList.add('copied');
           this.textContent = 'Copied!';
           setTimeout(() => {
