@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Generador experimentsConfig</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background: #f7f7f7;
+    }
+    .container {
+      display: flex;
+      gap: 32px;
+      margin-bottom: 24px;
+    }
+    .input-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      resize: vertical;
+      font-family: monospace;
+      font-size: 15px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      background: #fff;
+    }
+    button {
+      padding: 10px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      background: #007bff;
+      color: #fff;
+      cursor: pointer;
+      margin-bottom: 24px;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .output-block {
+      background: #222;
+      color: #e0e0e0;
+      padding: 18px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 15px;
+      position: relative;
+      margin-top: 12px;
+      white-space: pre;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    .copy-btn:hover {
+      background: #007bff;
+    }
+    .copied {
+      background: #28a745 !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Generador de experimentsConfig</h1>
+  <div class="container" style="flex-direction: column; gap: 0; margin-bottom: 0;">
+    <details style="margin-bottom: 24px; background: #f0f0f0; border-radius: 8px; padding: 12px 18px; border: 1px solid #ccc;">
+      <summary style="font-size: 17px; font-weight: bold; cursor: pointer; outline: none;">Configuración avanzada</summary>
+      <div style="display: flex; gap: 32px; margin-top: 18px;">
+        <div class="input-block">
+          <label for="experimentId">EXPERIMENT_ID</label>
+          <input id="experimentId" type="text" value="20260326_category_pictures" style="font-family: monospace; font-size: 15px; padding: 8px; border-radius: 6px; border: 1px solid #bbb; background: #fff; width: 100%;" />
+        </div>
+        <div class="input-block">
+          <label for="experimentKey">EXPERIMENT_KEY</label>
+          <input id="experimentKey" type="text" value="exp_categorypictures_test" style="font-family: monospace; font-size: 15px; padding: 8px; border-radius: 6px; border: 1px solid #bbb; background: #fff; width: 100%;" />
+        </div>
+      </div>
+    </details>
+    <div style="display: flex; gap: 32px;">
+      <div class="input-block">
+        <label for="categories">Categories (una por línea)</label>
+        <textarea id="categories" placeholder="Ejemplo:\ncat1\ncat2\ncat3"></textarea>
+      </div>
+      <div class="input-block">
+        <label for="testCategories">Test Categories (una por línea, mismo orden)</label>
+        <textarea id="testCategories" placeholder="Ejemplo:\ntest1\ntest2\ntest3"></textarea>
+      </div>
+    </div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px;">
+    <button id="generateBtn">Generar</button>
+    <span id="lineErrorMsg" style="color: red; display: none; font-size: 15px;">El numero de lineas no es el mismo</span>
+  </div>
+  <div id="output"></div>
+  <script>
+
+    function generateExpeimentConfig(mainCategory, testCategory, experimentId, experimentKey) {
+      return {
+        ["categoryPage-" + mainCategory]: {
+          id: experimentId,
+          key: experimentKey,
+          variants: {
+            default: "categoryPage-" + mainCategory,
+            v1: testCategory
+          }
+        }
+      };
+    }
+
+    function generateExperimentsConfig(categories, testCategories, experimentId, experimentKey) {
+      const result = [];
+      for (let i = 0; i < categories.length; i++) {
+        result.push(generateExpeimentConfig(categories[i], testCategories[i], experimentId, experimentKey));
+      }
+      return result;
+    }
+
+    function formatOutput(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+
+    function getCleanLines(id) {
+      return document.getElementById(id).value
+        .split('\n')
+        .map(s => s.trim())
+        .filter(line => line.length > 0);
+    }
+
+    function cleanTextareaInput(e) {
+      const lines = e.target.value.split('\n').map(s => s.trim()).filter(line => line.length > 0);
+      const cleaned = lines.join('\n');
+      if (e.target.value !== cleaned) {
+        e.target.value = cleaned;
+      }
+    }
+
+    function checkLinesAndToggleButton() {
+      const categories = getCleanLines('categories');
+      const testCategories = getCleanLines('testCategories');
+      const btn = document.getElementById('generateBtn');
+      const msg = document.getElementById('lineErrorMsg');
+      if (categories.length !== testCategories.length) {
+        btn.disabled = true;
+        msg.style.display = 'inline';
+      } else {
+        btn.disabled = false;
+        msg.style.display = 'none';
+      }
+    }
+
+
+    document.getElementById('categories').addEventListener('input', function(e) {
+      cleanTextareaInput(e);
+      checkLinesAndToggleButton();
+    });
+    document.getElementById('testCategories').addEventListener('input', function(e) {
+      cleanTextareaInput(e);
+      checkLinesAndToggleButton();
+    });
+
+    // Inicializar estado al cargar
+    checkLinesAndToggleButton();
+
+    document.getElementById('generateBtn').onclick = function() {
+      const experimentId = document.getElementById('experimentId').value.trim();
+      const experimentKey = document.getElementById('experimentKey').value.trim();
+      const categories = getCleanLines('categories');
+      const testCategories = getCleanLines('testCategories');
+      // Ya está validado por el control del botón
+      const config = generateExperimentsConfig(categories, testCategories, experimentId, experimentKey);
+      const code = formatOutput(config);
+      document.getElementById('output').innerHTML = `
+        <div class="output-block" id="codeBlock">
+          <button class="copy-btn" id="copyBtn">Copiar</button>
+          <code>${code.replace(/</g, '&lt;')}</code>
+        </div>
+      `;
+      document.getElementById('copyBtn').onclick = function() {
+        const text = code;
+        navigator.clipboard.writeText(text).then(() => {
+          this.classList.add('copied');
+          this.textContent = '¡Copiado!';
+          setTimeout(() => {
+            this.classList.remove('copied');
+            this.textContent = 'Copiar';
+          }, 1200);
+        });
+      };
+    };
+  </script>
+</body>
+</html>
