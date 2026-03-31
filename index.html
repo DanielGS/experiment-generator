@@ -81,10 +81,10 @@
   </style>
 </head>
 <body>
-  <h1>Generador de experimentsConfig</h1>
+  <h1>experimentsConfig Generator</h1>
   <div class="container" style="flex-direction: column; gap: 0; margin-bottom: 0;">
     <details style="margin-bottom: 24px; background: #f0f0f0; border-radius: 8px; padding: 12px 18px; border: 1px solid #ccc;">
-      <summary style="font-size: 17px; font-weight: bold; cursor: pointer; outline: none;">Configuración avanzada</summary>
+      <summary style="font-size: 17px; font-weight: bold; cursor: pointer; outline: none;">Advanced configuration</summary>
       <div style="display: flex; gap: 32px; margin-top: 18px;">
         <div class="input-block">
           <label for="experimentId">EXPERIMENT_ID</label>
@@ -95,21 +95,26 @@
           <input id="experimentKey" type="text" value="exp_categorypictures_test" style="font-family: monospace; font-size: 15px; padding: 8px; border-radius: 6px; border: 1px solid #bbb; background: #fff; width: 100%;" />
         </div>
       </div>
+      <div class="input-block" style="margin-top: 18px;">
+        <label for="extraJson">Extra JSON (optional, single entry or array of entries):</label>
+        <textarea id="extraJson" placeholder='Example: {"categoryPage-extra": {"id": "...", ...}}' style="font-family: monospace; font-size: 15px; padding: 8px; border-radius: 6px; border: 1px solid #bbb; background: #fff; width: 100%; min-height: 80px;"></textarea>
+        <span id="jsonErrorMsg" style="color: red; display: none; font-size: 14px; margin-top: 4px;"></span>
+      </div>
     </details>
     <div style="display: flex; gap: 32px;">
       <div class="input-block">
-        <label for="categories">Categories (una por línea)</label>
-        <textarea id="categories" placeholder="Ejemplo:\ncat1\ncat2\ncat3"></textarea>
+        <label for="categories">Categories (one per line)</label>
+        <textarea id="categories" placeholder="Example:\ncat1\ncat2\ncat3"></textarea>
       </div>
       <div class="input-block">
-        <label for="testCategories">Test Categories (una por línea, mismo orden)</label>
-        <textarea id="testCategories" placeholder="Ejemplo:\ntest1\ntest2\ntest3"></textarea>
+        <label for="testCategories">Test Categories (one per line, same order)</label>
+        <textarea id="testCategories" placeholder="Example:\ntest1\ntest2\ntest3"></textarea>
       </div>
     </div>
   </div>
   <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px;">
-    <button id="generateBtn">Generar</button>
-    <span id="lineErrorMsg" style="color: red; display: none; font-size: 15px;">El numero de lineas no es el mismo</span>
+    <button id="generateBtn">Generate</button>
+    <span id="lineErrorMsg" style="color: red; display: none; font-size: 15px;">The number of lines is not the same</span>
   </div>
   <div id="output"></div>
   <script>
@@ -128,9 +133,9 @@
     }
 
     function generateExperimentsConfig(categories, testCategories, experimentId, experimentKey) {
-      const result = [];
+      const result = {};
       for (let i = 0; i < categories.length; i++) {
-        result.push(generateExpeimentConfig(categories[i], testCategories[i], experimentId, experimentKey));
+        Object.assign(result, generateExpeimentConfig(categories[i], testCategories[i], experimentId, experimentKey));
       }
       return result;
     }
@@ -147,6 +152,17 @@
         .filter(line => line.length > 0);
     }
 
+    function getExtraJson() {
+      const val = document.getElementById('extraJson').value.trim();
+      if (!val) return null;
+      try {
+        const parsed = JSON.parse(val);
+        return parsed;
+      } catch (e) {
+        return 'error';
+      }
+    }
+
     function cleanTextareaInput(e) {
       const lines = e.target.value.split('\n').map(s => s.trim()).filter(line => line.length > 0);
       const cleaned = lines.join('\n');
@@ -160,9 +176,24 @@
       const testCategories = getCleanLines('testCategories');
       const btn = document.getElementById('generateBtn');
       const msg = document.getElementById('lineErrorMsg');
-      if (categories.length !== testCategories.length) {
+      const jsonMsg = document.getElementById('jsonErrorMsg');
+      let jsonValid = true;
+      const extra = document.getElementById('extraJson').value.trim();
+      if (extra) {
+        try {
+          JSON.parse(extra);
+          jsonMsg.style.display = 'none';
+        } catch (e) {
+          jsonMsg.textContent = 'Invalid JSON';
+          jsonMsg.style.display = 'inline';
+          jsonValid = false;
+        }
+      } else {
+        jsonMsg.style.display = 'none';
+      }
+      if (categories.length !== testCategories.length || !jsonValid) {
         btn.disabled = true;
-        msg.style.display = 'inline';
+        if (categories.length !== testCategories.length) msg.style.display = 'inline';
       } else {
         btn.disabled = false;
         msg.style.display = 'none';
@@ -178,6 +209,7 @@
       cleanTextareaInput(e);
       checkLinesAndToggleButton();
     });
+    document.getElementById('extraJson').addEventListener('input', checkLinesAndToggleButton);
 
     // Inicializar estado al cargar
     checkLinesAndToggleButton();
@@ -187,12 +219,24 @@
       const experimentKey = document.getElementById('experimentKey').value.trim();
       const categories = getCleanLines('categories');
       const testCategories = getCleanLines('testCategories');
-      // Ya está validado por el control del botón
-      const config = generateExperimentsConfig(categories, testCategories, experimentId, experimentKey);
+      let config = generateExperimentsConfig(categories, testCategories, experimentId, experimentKey);
+      // If there is valid extra JSON, merge it into the result
+      const extra = getExtraJson();
+      if (extra && extra !== 'error') {
+        if (Array.isArray(extra)) {
+          extra.forEach(entry => {
+            if (typeof entry === 'object' && entry !== null) {
+              Object.assign(config, entry);
+            }
+          });
+        } else if (typeof extra === 'object') {
+          Object.assign(config, extra);
+        }
+      }
       const code = formatOutput(config);
       document.getElementById('output').innerHTML = `
         <div class="output-block" id="codeBlock">
-          <button class="copy-btn" id="copyBtn">Copiar</button>
+          <button class="copy-btn" id="copyBtn">Copy</button>
           <code>${code.replace(/</g, '&lt;')}</code>
         </div>
       `;
@@ -200,10 +244,10 @@
         const text = code;
         navigator.clipboard.writeText(text).then(() => {
           this.classList.add('copied');
-          this.textContent = '¡Copiado!';
+          this.textContent = 'Copied!';
           setTimeout(() => {
             this.classList.remove('copied');
-            this.textContent = 'Copiar';
+            this.textContent = 'Copy';
           }, 1200);
         });
       };
